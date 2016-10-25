@@ -2,6 +2,7 @@ import sys
 import os
 import re
 import openpyxl
+import transaction
 
 ################################################################################
 # Description:
@@ -11,7 +12,7 @@ import openpyxl
 #                  contains transactions (as *.xlsx) and no sub directories
 #    2. out_file - File name to write output data to
 #
-# ex. > python nano_fram_bfm.py ./dlog_dir out_file.csv
+# ex. > python asmoney.py ./dir out_file.csv
 #
 # Revision:
 #   0.1, Andy Sciullo, 09/01/2016, Initial Version
@@ -29,13 +30,19 @@ import openpyxl
 ################################################################################
 COL_DATE = 1
 COL_RFNO = 2
-COL_MRCH = 3
-COL_ATYP = 4
-COL_ACNT = 5
-COL_ASUB = 6
+COL_DRMRCH = 3
+COL_DRATYP = 4
+COL_DRACNT = 5
+COL_DRASUB = 6
 COL_AMNT = 7
-COL_DESC = 8
-COL_DUPL = 9
+COL_CRMRCH = 8
+COL_CRATYP = 9
+COL_CRACNT = 10
+COL_CRASUB = 11
+COL_DESC = 12
+COL_DUPL = 13
+COL_DSRC = 14
+COL_SPLIT = 15
 
 ################################################################################
 ### Global Variables
@@ -56,6 +63,7 @@ dictCrAmnt = dict()
 dictCrDesc = dict()
 arrDrRefNo = []
 arrCrRefNo = []
+trans_dict = dict()
 
 ################################################################################
 # Function process_workbook
@@ -73,40 +81,40 @@ arrCrRefNo = []
 ################################################################################
 def process_workbook(wb_name):
     # Init variables
+    trans_list = list()
 
     # Search for files with correct name format
-    print "  Processing Workbook: ", wb_name
+    print("  Processing Workbook: ", wb_name)
     wb_temp = openpyxl.load_workbook(os.path.join(dir, wb_name))
     sheet = wb_temp.get_sheet_by_name('Journal')
     for rowNum in range(2, sheet.max_row + 1):  # skip the first row
-        refNo = sheet.cell(row=rowNum, column=COL_RFNO).value
+        temp_dict = None
+        temp_dict = dict()
+        refno = sheet.cell(row=rowNum, column=COL_RFNO).value
         amnt = sheet.cell(row=rowNum, column=COL_AMNT).value
         dupl = sheet.cell(row=rowNum, column=COL_DUPL).value
+        tsplit = sheet.cell(row=rowNum, column=COL_SPLIT).value
+        refsplit = refno + "-" + tsplit
         if not dupl:
-            if amnt > 0:
-                if refNo in arrDrRefNo:
-                    print "    Duplicate reference number found on Debit side -  RFNO: ", refNo, ", AMNT: ", amnt
-                else:
-                    arrDrRefNo.append(refNo)
-                dictDrDate[refNo] = sheet.cell(row=rowNum, column=COL_DATE).value
-                dictDrMrch[refNo] = sheet.cell(row=rowNum, column=COL_MRCH).value
-                dictDrAtyp[refNo] = sheet.cell(row=rowNum, column=COL_ATYP).value
-                dictDrAcnt[refNo] = sheet.cell(row=rowNum, column=COL_ACNT).value
-                dictDrAsub[refNo] = sheet.cell(row=rowNum, column=COL_ASUB).value
-                dictDrAmnt[refNo] = sheet.cell(row=rowNum, column=COL_AMNT).value
-                dictDrDesc[refNo] = sheet.cell(row=rowNum, column=COL_DESC).value
+            if refsplit in trans_dict.keys():
+                print("    Duplicate reference/split number found -  RFNO: {0}, SPLIT: {1}, AMNT: {2}".format(refno, tsplit, amnt))
             else:
-                if refNo in arrCrRefNo:
-                    print "    Duplicate reference number found on Credit side -  RFNO: ", refNo, ", AMNT: ", amnt
-                else:
-                    arrCrRefNo.append(refNo)
-                dictCrDate[refNo] = sheet.cell(row=rowNum, column=COL_DATE).value
-                dictCrMrch[refNo] = sheet.cell(row=rowNum, column=COL_MRCH).value
-                dictCrAtyp[refNo] = sheet.cell(row=rowNum, column=COL_ATYP).value
-                dictCrAcnt[refNo] = sheet.cell(row=rowNum, column=COL_ACNT).value
-                dictCrAsub[refNo] = sheet.cell(row=rowNum, column=COL_ASUB).value
-                dictCrAmnt[refNo] = sheet.cell(row=rowNum, column=COL_AMNT).value
-                dictCrDesc[refNo] = sheet.cell(row=rowNum, column=COL_DESC).value
+                temp_dict["date"] = sheet.cell(row=rowNum, column=COL_DATE).value
+                temp_dict["refno"] = refno
+                temp_dict["drmrch"] = sheet.cell(row=rowNum, column=COL_DRMRCH).value
+                temp_dict["dratyp"] = sheet.cell(row=rowNum, column=COL_DRATYP).value
+                temp_dict["dractn"] = sheet.cell(row=rowNum, column=COL_DRACNT).value
+                temp_dict["drasub"] = sheet.cell(row=rowNum, column=COL_DRASUB).value
+                temp_dict["amnt"] = amnt
+                temp_dict["crmrch"] = sheet.cell(row=rowNum, column=COL_CRMRCH).value
+                temp_dict["cratyp"] = sheet.cell(row=rowNum, column=COL_CRATYP).value
+                temp_dict["cractn"] = sheet.cell(row=rowNum, column=COL_CRACNT).value
+                temp_dict["crasub"] = sheet.cell(row=rowNum, column=COL_CRASUB).value
+                temp_dict["desc"] = sheet.cell(row=rowNum, column=COL_DESC).value
+                temp_dict["dupl"] = dupl
+                temp_dict["date"] = sheet.cell(row=rowNum, column=COL_DSRC).value
+                temp_dict["tsplit"] = tsplit
+                trans_dict[refsplit] = temp_dict
         #else:
         #    print "    Excluding marked duplicate - RFNO: ", refNo, ", AMNT: ", amnt
 
@@ -125,53 +133,43 @@ def process_workbook(wb_name):
 #
 ################################################################################
 def print_transactions(wb_name):
-    print "\n  Writing Output: ", wb_name
+    print("\n  Writing Output: {0}".format(wb_name))
 
     wb_out = openpyxl.load_workbook(wb_name)
-    sheet = wb_out.get_sheet_by_name('Journal')
+    sheet = wb_out.get_sheet_by_name("Journal")
 
     # Clear out previous journal data
     for rowNum in range(2, sheet.max_row + 1):  # skip the first row
         for colNum in range(1, sheet.max_column + 1):
             sheet.cell(row=rowNum, column=colNum).value = ""
 
-    for refNo in arrDrRefNo:
-        if refNo not in arrCrRefNo:
-            arrDrRefNo.remove(refNo)
-            print "    Debit reference number not found for Credit: ", refNo
-
-    for refNo in arrCrRefNo:
-        if refNo not in arrCrRefNo:
-            arrCrRefNo.remove(refNo)
-            print "    Credit reference number not found for Debit: ", refNo
-
     rowCnt = 2
-    for refNo in arrDrRefNo:
+    for ref in trans_dict.keys():
         #print("%s,%s,%s,%s,%s,%s,%s,%s" % (refNo, dictDrDate[refNo], dictDrMrch[refNo], dictDrAtyp[refNo], dictDrAcnt[refNo], dictDrAsub[refNo], \
         #    dictDrAmnt[refNo], dictDrDesc[refNo]))
         #print("%s,%s,%s,%s,%s,%s,%s,%s" % (refNo, dictCrDate[refNo], dictCrMrch[refNo], dictCrAtyp[refNo], dictCrAcnt[refNo], dictCrAsub[refNo], \
         #    dictCrAmnt[refNo], dictCrDesc[refNo]))
 
         # Debit row
-        sheet.cell(row=rowCnt, column=COL_DATE).value = dictDrDate[refNo]
-        sheet.cell(row=rowCnt, column=COL_RFNO).value = refNo
-        sheet.cell(row=rowCnt, column=COL_MRCH).value = dictDrMrch[refNo]
-        sheet.cell(row=rowCnt, column=COL_ATYP).value = dictDrAtyp[refNo]
-        sheet.cell(row=rowCnt, column=COL_ACNT).value = dictDrAcnt[refNo]
-        sheet.cell(row=rowCnt, column=COL_ASUB).value = dictDrAsub[refNo]
-        sheet.cell(row=rowCnt, column=COL_AMNT).value = dictDrAmnt[refNo]
-        sheet.cell(row=rowCnt, column=COL_DESC).value = dictDrDesc[refNo]
+        sheet.cell(row=rowCnt, column=COL_DATE).value = trans_dict[ref]["date"]
+        sheet.cell(row=rowCnt, column=COL_RFNO).value = trans_dict[ref]["refno"]
+        sheet.cell(row=rowCnt, column=COL_MRCH).value = trans_dict[ref]["drmrch"]
+        sheet.cell(row=rowCnt, column=COL_ATYP).value = trans_dict[ref]["dratyp"]
+        sheet.cell(row=rowCnt, column=COL_ACNT).value = trans_dict[ref]["dracnt"]
+        sheet.cell(row=rowCnt, column=COL_ASUB).value = trans_dict[ref]["drasub"]
+        sheet.cell(row=rowCnt, column=COL_AMNT).value = trans_dict[ref]["amnt"]
+        sheet.cell(row=rowCnt, column=COL_DESC).value = trans_dict[ref]["desc"]
         rowCnt += 1
 
         # Credit row
-        sheet.cell(row=rowCnt, column=COL_DATE).value = dictCrDate[refNo]
-        sheet.cell(row=rowCnt, column=COL_RFNO).value = refNo
-        sheet.cell(row=rowCnt, column=COL_MRCH).value = dictCrMrch[refNo]
-        sheet.cell(row=rowCnt, column=COL_ATYP).value = dictCrAtyp[refNo]
-        sheet.cell(row=rowCnt, column=COL_ACNT).value = dictCrAcnt[refNo]
-        sheet.cell(row=rowCnt, column=COL_ASUB).value = dictCrAsub[refNo]
-        sheet.cell(row=rowCnt, column=COL_AMNT).value = dictCrAmnt[refNo]
-        sheet.cell(row=rowCnt, column=COL_DESC).value = dictCrDesc[refNo]
+        sheet.cell(row=rowCnt, column=COL_DATE).value = trans_dict[ref]["date"]
+        sheet.cell(row=rowCnt, column=COL_RFNO).value = trans_dict[ref]["refno"]
+        sheet.cell(row=rowCnt, column=COL_MRCH).value = trans_dict[ref]["crmrch"]
+        sheet.cell(row=rowCnt, column=COL_ATYP).value = trans_dict[ref]["cratyp"]
+        sheet.cell(row=rowCnt, column=COL_ACNT).value = trans_dict[ref]["cracnt"]
+        sheet.cell(row=rowCnt, column=COL_ASUB).value = trans_dict[ref]["crasub"]
+        sheet.cell(row=rowCnt, column=COL_AMNT).value = trans_dict[ref]["amnt"] * -1
+        sheet.cell(row=rowCnt, column=COL_DESC).value = trans_dict[ref]["desc"]
         rowCnt += 1
 
     sheet.freeze_panes = 'A2'
@@ -200,18 +198,18 @@ if (len(sys.argv) != 3):
 dir = str(sys.argv[1])
 out_file = str(sys.argv[2])
 
-print "Transaction Dir : ", dir
-print "Output File     : ", out_file
+print("Transaction Dir : {0}".format(dir))
+print("Output File     : {0}".format(out_file))
 
 # Loop through each file in directory
 for file_name in os.listdir(dir):
     if os.path.isfile(os.path.join(dir, file_name)):
-        search_obj = re.search(r'.*_Transactions\.xlsx', file_name)
+        search_obj = re.search(r".*_Transactions\.xlsx", file_name)
         if search_obj:
             process_workbook(file_name)
 
 print_transactions(out_file)
-print "\n ==> ...Ending"
+print("\n ==> ...Ending")
 
 
 
