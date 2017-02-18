@@ -1,3 +1,6 @@
 .idea/
+*.csv
+*.xls
+*.xlsx
 Transactions/
 __pycache__/

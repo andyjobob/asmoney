@@ -1,0 +1,37 @@
+Import Transactions
+
+Download file from web
+Run script import-trans.py raw_file.csv transaction_file.xlsx
+
+import-trans.py
+- Read in control information
+- Using control information, read in data from raw file
+  - What if there are two identical transactions (date, amount, description)?
+- Read in raw data from transaction_file.xlsx
+- Add new raw transactions from raw file to Raw list and to Journal list
+- Perform a check to make sure all transactions that show in Raw list are also in Journal list
+
+
+transaction_file.xlsx
+- "Journal" Tab
+- "Raw" Tab
+- "Control" Tab
+  - "File Download Instructions:"
+    - For user info only, not needed by script
+  - "Raw File Info:"
+    - "Header Line Number"
+    - "Data Starting Line Number"
+    - "Date Column"
+    - "Amount Column"
+    - "Description Column"
+    - "Other Columns"
+    - Delimeter
+    - Date/Time Format
+    - RefNo Format
+  - "Keyword Table:"
+
+
+
+To Do:
+1. Format for reference number needs to be a 3 digit number
+2. Add some checking for discrepancies between journal list and raw list in transaction file
