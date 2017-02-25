@@ -80,9 +80,10 @@ control_data_start_line = sheet["B5"].value
 control_col_date = sheet["B6"].value
 control_col_amnt = sheet["B7"].value
 control_col_desc = sheet["B8"].value
+control_date_format = sheet["B9"].value
 
 # Start at first data row of keyword table
-for row in sheet.iter_rows(min_row=13, max_row=sheet.max_row):
+for row in sheet.iter_rows(min_row=14, max_row=sheet.max_row):
     control_kw_lod.append({keyword_header_list[0]: row[0].value,
                            keyword_header_list[1]: row[1].value,
                            keyword_header_list[2]: row[2].value,
@@ -105,7 +106,7 @@ for row in reader:
     row_cnt += 1
 
     if row_cnt >= control_data_start_line:
-        date = datetime.datetime.strptime(row[control_col_date - 1], "%m/%d/%Y  %a")
+        date = datetime.datetime.strptime(row[control_col_date - 1], control_date_format)
         amnt = float(row[control_col_amnt - 1])
         desc = row[control_col_desc - 1]
 
@@ -128,6 +129,8 @@ for i in range(0, len(import_raw_lod)):
 # Sort imported raw data by Date
 import_raw_lod.sort(key=lambda r: r[raw_header_list[1]])
 
+# Compare rows from imported raw transactions with those already the raw transaction list, if new, add to raw
+# transaction list
 add_raw_lod = list()
 for import_row in import_raw_lod:
     already_in_table = False
@@ -147,7 +150,8 @@ for import_row in import_raw_lod:
 # Sort imported journal transaction data by RefNo
 journal_lod.sort(key=lambda r: r[journal_header_list[1]])
 
-# Convert additional raw lod to additional journal lod
+# Convert additional raw lod transactions to additional journal lod transactions by seeing if descriptions match those
+# in key word table
 add_journal_lod = list()
 for raw_row in add_raw_lod:
     date = raw_row[raw_header_list[1]]
@@ -197,7 +201,36 @@ for raw_row in add_raw_lod:
 
     add_journal_lod.append(journal_row)
 
+# Add additional lod to journal lod
 journal_lod.extend(add_journal_lod)
+
+
+# Write additional raw lod to excel file
+sheet = wb_trans.get_sheet_by_name('Raw')
+sheet.freeze_panes = 'A2'
+row_cnt = sheet.max_row + 1
+for row in add_raw_lod:
+    col_cnt = 1
+    for item in raw_header_list:
+        sheet.cell(row=row_cnt, column=col_cnt).value = row[item]
+        col_cnt += 1
+
+    row_cnt += 1
+
+# Write additional lod journal to excel file
+sheet = wb_trans.get_sheet_by_name('Journal')
+sheet.freeze_panes = 'A2'
+row_cnt = sheet.max_row + 1
+for row in add_journal_lod:
+    col_cnt = 1
+    for item in journal_header_list:
+        sheet.cell(row=row_cnt, column=col_cnt).value = row[item]
+        col_cnt += 1
+
+    row_cnt += 1
+
+# Write to excel file to same file name
+wb_trans.save(args.tfile)
 
 # Temporary code to write csv file for output
 file_handle = open("test_out.csv", 'w', newline='')

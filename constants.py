@@ -1,7 +1,7 @@
 
-
-
-
+########################################
+# Constants for journal transaction table
+########################################
 COL_DATE = 1
 COL_RFNO = 2
 COL_DRMRCH = 3
@@ -24,12 +24,26 @@ journal_header_list = ["Date", "RefNo",
                        "Cr-Merchant", "Cr-Account-Type", "Cr-Account", "Cr-Sub-Account",
                        "Description", "Duplicate", "Source", "SplitNo"]
 
+########################################
+# Constants for raw transaction table
+########################################
+COL_RAW_RFNO = 1
+COL_RAW_DATE = 2
+COL_RAW_AMNT = 3
+COL_RAW_DESC = 4
+
 raw_header_list = ["RefNo", "Date", "Amount", "Description"]
 
+########################################
+# Constants for keyword lookup table
+########################################
 keyword_header_list = ["Keyword",
                        "Dr-Merchant", "Dr-Account-Type", "Dr-Account", "Dr-Sub-Account",
                        "Cr-Merchant", "Cr-Account-Type", "Cr-Account", "Cr-Sub-Account"]
 
+########################################
+# Constants for output transaction table
+########################################
 COL_OUT_DATE = 1
 COL_OUT_RFNO = 2
 COL_OUT_MRCH = 3

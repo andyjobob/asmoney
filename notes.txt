@@ -35,3 +35,6 @@ transaction_file.xlsx
 To Do:
 1. Format for reference number needs to be a 3 digit number
 2. Add some checking for discrepancies between journal list and raw list in transaction file
+3. Add in additional column for comments, don't use description column for comments
+4. Think of how to hanle splits, maybe current way is good enough, maybe move split column next to refno
+5. Use regular expressions in key word table, figure out how to convert to raw string
